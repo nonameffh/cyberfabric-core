@@ -17,9 +17,8 @@
       "$ref": "../common/GtsMessageId.json"
     },
     "user_id": {
-      "type": "string",
-      "minLength": 1,
-      "description": "User identifier (from JWT client_id)"
+      "$ref": "../common/GtsUserId.json",
+      "description": "User who submitted the reaction (from JWT user_id claim)"
     },
     "reaction_type": {
       "$ref": "../common/ReactionType.json"

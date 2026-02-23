@@ -24,7 +24,9 @@
       "post": {
         "summary": "Create new session",
         "operationId": "createSession",
-        "tags": ["Session Management"],
+        "tags": [
+          "Session Management"
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -62,7 +64,9 @@
       "get": {
         "summary": "Get session details",
         "operationId": "getSession",
-        "tags": ["Session Management"],
+        "tags": [
+          "Session Management"
+        ],
         "parameters": [
           {
             "$ref": "#/components/parameters/SessionId"
@@ -94,7 +98,9 @@
         "summary": "Delete session",
         "description": "Delete a session (soft by default, hard if requested). Soft delete is recoverable.",
         "operationId": "deleteSession",
-        "tags": ["Session Management"],
+        "tags": [
+          "Session Management"
+        ],
         "parameters": [
           {
             "$ref": "#/components/parameters/SessionId"
@@ -104,7 +110,10 @@
             "in": "query",
             "schema": {
               "type": "string",
-              "enum": ["soft", "hard"],
+              "enum": [
+                "soft",
+                "hard"
+              ],
               "default": "soft"
             },
             "description": "Type of deletion: soft (recoverable) or hard (permanent)"
@@ -138,7 +147,9 @@
         "summary": "Soft delete session",
         "description": "Mark session as soft-deleted (recoverable within retention period)",
         "operationId": "softDeleteSession",
-        "tags": ["Session Management"],
+        "tags": [
+          "Session Management"
+        ],
         "parameters": [
           {
             "$ref": "#/components/parameters/SessionId"
@@ -185,7 +196,9 @@
         "summary": "Restore soft-deleted session",
         "description": "Restore a session from soft-deleted state back to active",
         "operationId": "restoreSession",
-        "tags": ["Session Management"],
+        "tags": [
+          "Session Management"
+        ],
         "parameters": [
           {
             "$ref": "#/components/parameters/SessionId"
@@ -231,7 +244,9 @@
       "patch": {
         "summary": "Switch session type",
         "operationId": "switchSessionType",
-        "tags": ["Session Management"],
+        "tags": [
+          "Session Management"
+        ],
         "parameters": [
           {
             "$ref": "#/components/parameters/SessionId"
@@ -243,7 +258,9 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": ["new_session_type_id"],
+                "required": [
+                  "new_session_type_id"
+                ],
                 "properties": {
                   "new_session_type_id": {
                     "$ref": "../schemas/common/GtsSessionTypeId.json"
@@ -291,7 +308,9 @@
       "post": {
         "summary": "Export session",
         "operationId": "exportSession",
-        "tags": ["Session Management"],
+        "tags": [
+          "Session Management"
+        ],
         "parameters": [
           {
             "$ref": "#/components/parameters/SessionId"
@@ -303,15 +322,25 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": ["format", "scope"],
+                "required": [
+                  "format",
+                  "scope"
+                ],
                 "properties": {
                   "format": {
                     "type": "string",
-                    "enum": ["json", "markdown", "txt"]
+                    "enum": [
+                      "json",
+                      "markdown",
+                      "txt"
+                    ]
                   },
                   "scope": {
                     "type": "string",
-                    "enum": ["active", "all"]
+                    "enum": [
+                      "active",
+                      "all"
+                    ]
                   }
                 }
               }
@@ -357,7 +386,9 @@
       "post": {
         "summary": "Generate share link",
         "operationId": "shareSession",
-        "tags": ["Session Management"],
+        "tags": [
+          "Session Management"
+        ],
         "parameters": [
           {
             "$ref": "#/components/parameters/SessionId"
@@ -413,7 +444,9 @@
       "get": {
         "summary": "Access shared session",
         "operationId": "accessSharedSession",
-        "tags": ["Session Management"],
+        "tags": [
+          "Session Management"
+        ],
         "security": [],
         "parameters": [
           {
@@ -466,7 +499,9 @@
       "get": {
         "summary": "Search within session",
         "operationId": "searchSession",
-        "tags": ["Search Operations"],
+        "tags": [
+          "Search Operations"
+        ],
         "parameters": [
           {
             "$ref": "#/components/parameters/SessionId"
@@ -527,7 +562,9 @@
       "get": {
         "summary": "Search across all sessions",
         "operationId": "searchAllSessions",
-        "tags": ["Search Operations"],
+        "tags": [
+          "Search Operations"
+        ],
         "parameters": [
           {
             "name": "query",
@@ -582,7 +619,9 @@
       "post": {
         "summary": "Send message with streaming response",
         "operationId": "sendMessage",
-        "tags": ["Message Operations"],
+        "tags": [
+          "Message Operations"
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -600,10 +639,18 @@
               "application/x-ndjson": {
                 "schema": {
                   "oneOf": [
-                    {"$ref": "#/components/schemas/StreamingStartEvent"},
-                    {"$ref": "#/components/schemas/StreamingChunkEvent"},
-                    {"$ref": "#/components/schemas/StreamingCompleteEvent"},
-                    {"$ref": "#/components/schemas/StreamingErrorEvent"}
+                    {
+                      "$ref": "#/components/schemas/StreamingStartEvent"
+                    },
+                    {
+                      "$ref": "#/components/schemas/StreamingChunkEvent"
+                    },
+                    {
+                      "$ref": "#/components/schemas/StreamingCompleteEvent"
+                    },
+                    {
+                      "$ref": "#/components/schemas/StreamingErrorEvent"
+                    }
                   ]
                 }
               }
@@ -628,7 +675,9 @@
       "post": {
         "summary": "Recreate message with streaming response",
         "operationId": "recreateMessage",
-        "tags": ["Message Operations"],
+        "tags": [
+          "Message Operations"
+        ],
         "parameters": [
           {
             "$ref": "#/components/parameters/MessageId"
@@ -651,10 +700,18 @@
               "application/x-ndjson": {
                 "schema": {
                   "oneOf": [
-                    {"$ref": "#/components/schemas/StreamingStartEvent"},
-                    {"$ref": "#/components/schemas/StreamingChunkEvent"},
-                    {"$ref": "#/components/schemas/StreamingCompleteEvent"},
-                    {"$ref": "#/components/schemas/StreamingErrorEvent"}
+                    {
+                      "$ref": "#/components/schemas/StreamingStartEvent"
+                    },
+                    {
+                      "$ref": "#/components/schemas/StreamingChunkEvent"
+                    },
+                    {
+                      "$ref": "#/components/schemas/StreamingCompleteEvent"
+                    },
+                    {
+                      "$ref": "#/components/schemas/StreamingErrorEvent"
+                    }
                   ]
                 }
               }
@@ -679,7 +736,9 @@
       "post": {
         "summary": "Generate session summary with streaming response",
         "operationId": "summarizeSession",
-        "tags": ["Session Management"],
+        "tags": [
+          "Session Management"
+        ],
         "parameters": [
           {
             "$ref": "#/components/parameters/SessionId"
@@ -702,10 +761,18 @@
               "application/x-ndjson": {
                 "schema": {
                   "oneOf": [
-                    {"$ref": "#/components/schemas/StreamingStartEvent"},
-                    {"$ref": "#/components/schemas/StreamingChunkEvent"},
-                    {"$ref": "#/components/schemas/StreamingCompleteEvent"},
-                    {"$ref": "#/components/schemas/StreamingErrorEvent"}
+                    {
+                      "$ref": "#/components/schemas/StreamingStartEvent"
+                    },
+                    {
+                      "$ref": "#/components/schemas/StreamingChunkEvent"
+                    },
+                    {
+                      "$ref": "#/components/schemas/StreamingCompleteEvent"
+                    },
+                    {
+                      "$ref": "#/components/schemas/StreamingErrorEvent"
+                    }
                   ]
                 }
               }
@@ -730,7 +797,9 @@
       "get": {
         "summary": "List messages in session",
         "operationId": "listMessages",
-        "tags": ["Message Operations"],
+        "tags": [
+          "Message Operations"
+        ],
         "parameters": [
           {
             "$ref": "#/components/parameters/SessionId"
@@ -778,7 +847,9 @@
       "get": {
         "summary": "Get message details",
         "operationId": "getMessage",
-        "tags": ["Message Operations"],
+        "tags": [
+          "Message Operations"
+        ],
         "parameters": [
           {
             "$ref": "#/components/parameters/MessageId"
@@ -811,7 +882,9 @@
       "post": {
         "summary": "Add or update message reaction",
         "operationId": "reactToMessage",
-        "tags": ["Message Operations"],
+        "tags": [
+          "Message Operations"
+        ],
         "parameters": [
           {
             "$ref": "#/components/parameters/MessageId"
@@ -857,7 +930,9 @@
       "get": {
         "summary": "Get message variants",
         "operationId": "getMessageVariants",
-        "tags": ["Message Operations"],
+        "tags": [
+          "Message Operations"
+        ],
         "parameters": [
           {
             "$ref": "#/components/parameters/MessageId"
@@ -902,7 +977,9 @@
         "summary": "Delete message",
         "description": "Permanently delete a message and cascade delete all associated reactions. Validates session ownership via JWT identity before deletion.",
         "operationId": "deleteMessage",
-        "tags": ["Message Operations"],
+        "tags": [
+          "Message Operations"
+        ],
         "parameters": [
           {
             "$ref": "#/components/parameters/SessionId"
@@ -1027,15 +1104,15 @@
     "schemas": {
       "SessionCreateRequest": {
         "type": "object",
-        "required": ["session_type_id", "client_id"],
+        "required": [
+          "session_type_id"
+        ],
         "properties": {
           "session_type_id": {
             "$ref": "../schemas/common/GtsSessionTypeId.json"
-          },
-          "client_id": {
-            "type": "string"
           }
-        }
+        },
+        "description": "Request to create a new chat session. tenant_id, user_id, and client_id are extracted from JWT."
       },
       "SessionCreateResponse": {
         "type": "object",
@@ -1058,7 +1135,8 @@
             "$ref": "../schemas/common/GtsSessionId.json"
           },
           "client_id": {
-            "type": "string"
+            "$ref": "../schemas/common/GtsClientId.json",
+            "description": "Calling application identifier"
           },
           "session_type_id": {
             "$ref": "../schemas/common/GtsSessionTypeId.json"
@@ -1103,7 +1181,11 @@
           },
           "role": {
             "type": "string",
-            "enum": ["user", "assistant", "system"]
+            "enum": [
+              "user",
+              "assistant",
+              "system"
+            ]
           },
           "content": {
             "type": "array",
@@ -1196,7 +1278,10 @@
       },
       "TextContent": {
         "type": "object",
-        "required": ["type", "text"],
+        "required": [
+          "type",
+          "text"
+        ],
         "properties": {
           "type": {
             "type": "string",
@@ -1210,7 +1295,10 @@
       },
       "CodeContent": {
         "type": "object",
-        "required": ["type", "code"],
+        "required": [
+          "type",
+          "code"
+        ],
         "properties": {
           "type": {
             "type": "string",
@@ -1228,7 +1316,10 @@
       },
       "ImageContent": {
         "type": "object",
-        "required": ["type", "image_url"],
+        "required": [
+          "type",
+          "image_url"
+        ],
         "properties": {
           "type": {
             "type": "string",
@@ -1247,7 +1338,10 @@
       },
       "AudioContent": {
         "type": "object",
-        "required": ["type", "audio_url"],
+        "required": [
+          "type",
+          "audio_url"
+        ],
         "properties": {
           "type": {
             "type": "string",
@@ -1266,7 +1360,10 @@
       },
       "VideoContent": {
         "type": "object",
-        "required": ["type", "video_url"],
+        "required": [
+          "type",
+          "video_url"
+        ],
         "properties": {
           "type": {
             "type": "string",
@@ -1285,7 +1382,10 @@
       },
       "DocumentContent": {
         "type": "object",
-        "required": ["type", "document_url"],
+        "required": [
+          "type",
+          "document_url"
+        ],
         "properties": {
           "type": {
             "type": "string",
@@ -1406,7 +1506,11 @@
       },
       "Error": {
         "type": "object",
-        "required": ["type", "title", "status"],
+        "required": [
+          "type",
+          "title",
+          "status"
+        ],
         "properties": {
           "type": {
             "type": "string",
@@ -1446,24 +1550,38 @@
       },
       "MessageReactionRequest": {
         "type": "object",
-        "required": ["reaction_type"],
+        "required": [
+          "reaction_type"
+        ],
         "properties": {
           "reaction_type": {
             "type": "string",
-            "enum": ["like", "dislike", "none"]
+            "enum": [
+              "like",
+              "dislike",
+              "none"
+            ]
           }
         }
       },
       "MessageReactionResponse": {
         "type": "object",
-        "required": ["message_id", "reaction_type", "applied"],
+        "required": [
+          "message_id",
+          "reaction_type",
+          "applied"
+        ],
         "properties": {
           "message_id": {
             "$ref": "../schemas/common/GtsMessageId.json"
           },
           "reaction_type": {
             "type": "string",
-            "enum": ["like", "dislike", "none"]
+            "enum": [
+              "like",
+              "dislike",
+              "none"
+            ]
           },
           "applied": {
             "type": "boolean"
@@ -1472,7 +1590,10 @@
       },
       "MessageSendRequest": {
         "type": "object",
-        "required": ["session_id", "content"],
+        "required": [
+          "session_id",
+          "content"
+        ],
         "properties": {
           "session_id": {
             "$ref": "../schemas/common/GtsSessionId.json"
@@ -1513,7 +1634,10 @@
       },
       "MessageDeleteResponse": {
         "type": "object",
-        "required": ["message_id", "deleted"],
+        "required": [
+          "message_id",
+          "deleted"
+        ],
         "properties": {
           "message_id": {
             "$ref": "../schemas/common/GtsMessageId.json",
@@ -1544,7 +1668,10 @@
       },
       "StreamingStartEvent": {
         "type": "object",
-        "required": ["type", "message_id"],
+        "required": [
+          "type",
+          "message_id"
+        ],
         "properties": {
           "type": {
             "type": "string",
@@ -1557,7 +1684,11 @@
       },
       "StreamingChunkEvent": {
         "type": "object",
-        "required": ["type", "message_id", "chunk"],
+        "required": [
+          "type",
+          "message_id",
+          "chunk"
+        ],
         "properties": {
           "type": {
             "type": "string",
@@ -1568,11 +1699,21 @@
           },
           "chunk": {
             "type": "object",
-            "required": ["type", "content"],
+            "required": [
+              "type",
+              "content"
+            ],
             "properties": {
               "type": {
                 "type": "string",
-                "enum": ["text", "code", "image", "audio", "video", "document"]
+                "enum": [
+                  "text",
+                  "code",
+                  "image",
+                  "audio",
+                  "video",
+                  "document"
+                ]
               },
               "content": {
                 "type": "string"
@@ -1583,7 +1724,10 @@
       },
       "StreamingCompleteEvent": {
         "type": "object",
-        "required": ["type", "message_id"],
+        "required": [
+          "type",
+          "message_id"
+        ],
         "properties": {
           "type": {
             "type": "string",
@@ -1612,7 +1756,12 @@
       },
       "StreamingErrorEvent": {
         "type": "object",
-        "required": ["type", "message_id", "code", "detail"],
+        "required": [
+          "type",
+          "message_id",
+          "code",
+          "detail"
+        ],
         "properties": {
           "type": {
             "type": "string",
@@ -1631,7 +1780,12 @@
       },
       "SessionDeleteResponse": {
         "type": "object",
-        "required": ["session_id", "deleted", "deletion_type", "deleted_at"],
+        "required": [
+          "session_id",
+          "deleted",
+          "deletion_type",
+          "deleted_at"
+        ],
         "properties": {
           "session_id": {
             "$ref": "../schemas/common/GtsSessionId.json"
@@ -1642,14 +1796,20 @@
           },
           "deletion_type": {
             "type": "string",
-            "enum": ["soft", "hard"]
+            "enum": [
+              "soft",
+              "hard"
+            ]
           },
           "deleted_at": {
             "type": "string",
             "format": "date-time"
           },
           "scheduled_hard_delete_at": {
-            "type": ["string", "null"],
+            "type": [
+              "string",
+              "null"
+            ],
             "format": "date-time",
             "description": "When soft deleted, shows scheduled permanent deletion time"
           }
@@ -1657,7 +1817,9 @@
       },
       "SessionSoftDeleteRequest": {
         "type": "object",
-        "required": ["session_id"],
+        "required": [
+          "session_id"
+        ],
         "properties": {
           "session_id": {
             "$ref": "../schemas/common/GtsSessionId.json"
@@ -1666,14 +1828,24 @@
       },
       "SessionSoftDeleteResponse": {
         "type": "object",
-        "required": ["session_id", "lifecycle_state", "deleted_at", "scheduled_hard_delete_at"],
+        "required": [
+          "session_id",
+          "lifecycle_state",
+          "deleted_at",
+          "scheduled_hard_delete_at"
+        ],
         "properties": {
           "session_id": {
             "$ref": "../schemas/common/GtsSessionId.json"
           },
           "lifecycle_state": {
             "type": "string",
-            "enum": ["active", "archived", "soft_deleted", "hard_deleted"]
+            "enum": [
+              "active",
+              "archived",
+              "soft_deleted",
+              "hard_deleted"
+            ]
           },
           "deleted_at": {
             "type": "string",
@@ -1687,7 +1859,9 @@
       },
       "SessionRestoreRequest": {
         "type": "object",
-        "required": ["session_id"],
+        "required": [
+          "session_id"
+        ],
         "properties": {
           "session_id": {
             "$ref": "../schemas/common/GtsSessionId.json"
@@ -1696,14 +1870,23 @@
       },
       "SessionRestoreResponse": {
         "type": "object",
-        "required": ["session_id", "lifecycle_state", "restored_at"],
+        "required": [
+          "session_id",
+          "lifecycle_state",
+          "restored_at"
+        ],
         "properties": {
           "session_id": {
             "$ref": "../schemas/common/GtsSessionId.json"
           },
           "lifecycle_state": {
             "type": "string",
-            "enum": ["active", "archived", "soft_deleted", "hard_deleted"]
+            "enum": [
+              "active",
+              "archived",
+              "soft_deleted",
+              "hard_deleted"
+            ]
           },
           "restored_at": {
             "type": "string",

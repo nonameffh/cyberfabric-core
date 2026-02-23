@@ -14,9 +14,17 @@
       "$ref": "../common/GtsSessionId.json",
       "description": "Session that was soft-deleted"
     },
+    "tenant_id": {
+      "$ref": "../common/GtsTenantId.json",
+      "description": "Owning tenant"
+    },
+    "user_id": {
+      "$ref": "../common/GtsUserId.json",
+      "description": "Owning user"
+    },
     "client_id": {
       "$ref": "../common/GtsClientId.json",
-      "description": "Owner of the session"
+      "description": "Calling application identifier"
     },
     "deleted_at": {
       "type": "string",
@@ -34,6 +42,6 @@
       "description": "Event generation timestamp"
     }
   },
-  "required": ["event", "session_id", "client_id", "deleted_at", "scheduled_hard_delete_at", "timestamp"],
+  "required": ["event", "session_id", "tenant_id", "user_id", "deleted_at", "scheduled_hard_delete_at", "timestamp"],
   "additionalProperties": false
 }

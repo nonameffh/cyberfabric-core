@@ -16,9 +16,17 @@
     "session_type_id": {
       "$ref": "../common/GtsSessionTypeId.json"
     },
+    "tenant_id": {
+      "$ref": "../common/GtsTenantId.json",
+      "description": "Owning tenant"
+    },
+    "user_id": {
+      "$ref": "../common/GtsUserId.json",
+      "description": "Owning user"
+    },
     "client_id": {
       "$ref": "../common/GtsClientId.json",
-      "description": "Client identifier who created the session"
+      "description": "Calling application identifier"
     },
     "timestamp": {
       "type": "string",
@@ -27,6 +35,6 @@
       "examples": ["2024-01-15T10:30:00Z"]
     }
   },
-  "required": ["event", "session_id", "session_type_id", "client_id", "timestamp"],
+  "required": ["event", "session_id", "session_type_id", "tenant_id", "user_id", "timestamp"],
   "additionalProperties": false
 }

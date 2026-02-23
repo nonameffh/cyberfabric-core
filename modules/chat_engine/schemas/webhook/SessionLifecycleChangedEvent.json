@@ -14,9 +14,17 @@
       "$ref": "../common/GtsSessionId.json",
       "description": "Session whose lifecycle changed"
     },
+    "tenant_id": {
+      "$ref": "../common/GtsTenantId.json",
+      "description": "Owning tenant"
+    },
+    "user_id": {
+      "$ref": "../common/GtsUserId.json",
+      "description": "Owning user"
+    },
     "client_id": {
       "$ref": "../common/GtsClientId.json",
-      "description": "Owner of the session"
+      "description": "Calling application identifier"
     },
     "old_state": {
       "$ref": "../common/LifecycleState.json",
@@ -37,6 +45,6 @@
       "description": "Event generation timestamp"
     }
   },
-  "required": ["event", "session_id", "client_id", "old_state", "new_state", "timestamp"],
+  "required": ["event", "session_id", "tenant_id", "user_id", "old_state", "new_state", "timestamp"],
   "additionalProperties": false
 }

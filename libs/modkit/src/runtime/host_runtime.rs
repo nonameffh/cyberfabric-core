@@ -423,6 +423,7 @@ impl HostRuntime {
                         source: err,
                     }
                 })?;
+
                 router = rest
                     .register_rest(&ctx, router, registry)
                     .map_err(|source| RegistryError::RestRegister {

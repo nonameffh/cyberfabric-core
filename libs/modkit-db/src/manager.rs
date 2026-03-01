@@ -35,9 +35,19 @@ impl DbManager {
             .extract()
             .unwrap_or_else(|_| serde_json::Value::Object(serde_json::Map::new()));
 
-        let global: Option<GlobalDatabaseConfig> = all_data
-            .get("database")
-            .and_then(|db| serde_json::from_value(db.clone()).ok());
+        let global: Option<GlobalDatabaseConfig> = match all_data.get("database") {
+            None => None,
+            Some(db) => match serde_json::from_value(db.clone()) {
+                Ok(cfg) => Some(cfg),
+                Err(e) => {
+                    tracing::warn!(
+                        error = %e,
+                        "Global 'database' key is present but failed to deserialize; ignoring"
+                    );
+                    None
+                }
+            },
+        };
 
         Ok(Self {
             global,
@@ -86,11 +96,24 @@ impl DbManager {
             .extract()
             .unwrap_or_else(|_| serde_json::Value::Object(serde_json::Map::new()));
 
-        let module_cfg: Option<DbConnConfig> = module_data
+        let module_cfg: Option<DbConnConfig> = match module_data
             .get("modules")
             .and_then(|modules| modules.get(module))
             .and_then(|m| m.get("database"))
-            .and_then(|db| serde_json::from_value(db.clone()).ok());
+        {
+            None => None,
+            Some(db) => match serde_json::from_value(db.clone()) {
+                Ok(cfg) => Some(cfg),
+                Err(e) => {
+                    tracing::warn!(
+                        module = %module,
+                        error = %e,
+                        "Module 'database' key is present but failed to deserialize; ignoring"
+                    );
+                    None
+                }
+            },
+        };
 
         let Some(mut cfg) = module_cfg else {
             tracing::debug!(

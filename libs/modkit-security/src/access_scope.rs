@@ -526,9 +526,19 @@ impl AccessScope {
     }
 
     /// Check if any constraint has a filter matching the given property and UUID.
+    ///
+    /// Matches both `ScopeValue::Uuid` and `ScopeValue::String` variants so
+    /// that UUID-as-string values are treated consistently with
+    /// [`AccessScope::uuid_values`], which also parses strings via
+    /// [`ScopeValue::as_uuid`].
     #[must_use]
     pub fn contains_uuid(&self, property: &str, id: Uuid) -> bool {
-        self.contains_value(property, &ScopeValue::Uuid(id))
+        self.constraints.iter().any(|c| {
+            c.filters().iter().any(|f| {
+                f.property() == property
+                    && f.values().iter().any(|v| v.as_uuid() == Some(id))
+            })
+        })
     }
 
     /// Check if any constraint references the given property.

@@ -59,3 +59,7 @@ fn main() {
     // Should NOT trigger - valid GTS instance segment
     let _id_valid = ProductV1::<()>::gts_make_instance_id("vendor.package.sku.abc.v1");
 }
+
+// Error 9: GTS wildcard in const without _WILDCARD suffix
+// Should trigger DE0901 - invalid GTS wildcard const name (must end with _WILDCARD)
+const BAD_PATTERN: &str = "gts.x.core.srr.resource.v1~*";

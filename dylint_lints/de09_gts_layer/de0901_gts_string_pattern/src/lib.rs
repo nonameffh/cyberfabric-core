@@ -6,7 +6,7 @@ extern crate rustc_span;
 
 use gts::{GtsIdSegment, GtsOps};
 use rustc_ast::token::LitKind;
-use rustc_ast::{AttrKind, Attribute, Expr, ExprKind};
+use rustc_ast::{AttrKind, Attribute, Expr, ExprKind, Item, ItemKind};
 use rustc_lint::{EarlyContext, EarlyLintPass, LintContext};
 use rustc_span::Span;
 use std::cell::RefCell;
@@ -38,9 +38,64 @@ impl EarlyLintPass for De0901GtsStringPattern {
         self.check_struct_to_gts_schema_attr(cx, attr);
     }
 
+    /// Enforce naming convention for `const`/`static` items holding GTS wildcard strings.
+    ///
+    /// A wildcard GTS string (contains `*`) stored in a `const` or `static` item
+    /// **must** have a name ending with `_WILDCARD`.  This makes wildcard constants
+    /// explicitly opt-in and easy to audit.
+    ///
+    /// | Item name         | Value                             | Result  |
+    /// |-------------------|-----------------------------------|---------|
+    /// | `SRR_WILDCARD`    | `"gts.x.core.srr.resource.v1~*"` | ✅ allowed — name ends with `_WILDCARD` |
+    /// | `SRR_PATTERN`     | `"gts.x.core.srr.resource.v1~*"` | ❌ flagged — name must end with `_WILDCARD` |
+    ///
+    /// Items with a compliant name are added to the skip set so their value span
+    /// is not re-checked by `check_expr`.
+    fn check_item(&mut self, cx: &EarlyContext<'_>, item: &Item) {
+        // Extract both the item name and the initializer expression from const/static items.
+        // Note: `Item` has no top-level `ident`; it lives inside `ConstItem` / `StaticItem`.
+        let (item_name, init_expr): (&str, Option<&Expr>) = match &item.kind {
+            ItemKind::Const(ci) => (ci.ident.name.as_str(), ci.expr.as_deref()),
+            ItemKind::Static(si) => (si.ident.name.as_str(), si.expr.as_deref()),
+            _ => return,
+        };
+        let Some(init) = init_expr else { return };
+
+        // Only act on GTS wildcard string values (starts with "gts." and contains '*').
+        let Some(s) = Self::string_lit_value(init) else {
+            return;
+        };
+        if !s.starts_with("gts.") || !s.contains('*') {
+            return;
+        }
+
+        if item_name.ends_with("_WILDCARD") {
+            // Compliant name — skip-list so check_expr doesn't re-flag the literal.
+            SKIP_SPANS.with(|spans| {
+                collect_nested_spans(init, &mut spans.borrow_mut());
+            });
+        } else {
+            // Non-compliant name — flag an error.
+            cx.span_lint(DE0901_GTS_STRING_PATTERN, item.span, |diag| {
+                diag.primary_message(format!(
+                    "GTS wildcard string in `const`/`static` `{item_name}` must have a name ending with `_WILDCARD` (DE0901)"
+                ));
+                diag.note(format!(
+                    "found wildcard GTS pattern `{s}` stored in `{item_name}`"
+                ));
+                diag.help(format!(
+                    "rename to `{item_name}_WILDCARD` or use a non-wildcard value"
+                ));
+            });
+            // Also skip-list the span so check_expr doesn't double-report.
+            SKIP_SPANS.with(|spans| {
+                collect_nested_spans(init, &mut spans.borrow_mut());
+            });
+        }
+    }
+
     fn check_expr(&mut self, cx: &EarlyContext<'_>, expr: &Expr) {
-        // First, collect spans from starts_with calls to skip
-        // This runs before checking, so nested expressions will be marked
+        // ── Phase 1: collect spans to skip ────────────────────────────────────
         if let ExprKind::MethodCall(method_call) = &expr.kind {
             let method_name = method_call.seg.ident.name.as_str();
             if method_name == "starts_with" {
@@ -55,18 +110,42 @@ impl EarlyLintPass for De0901GtsStringPattern {
                 // Don't check anything in starts_with calls
                 return;
             }
-            if method_name == "resource_pattern" || method_name == "with_pattern" {
-                // Add arguments to skip list - wildcards are allowed in these methods
+            if method_name == "resource_pattern"
+                || method_name == "with_pattern"
+                || method_name == "resolve_to_uuids"
+            {
+                // Add arguments and all nested sub-expression spans to skip list.
+                // This is necessary because arguments like &["gts...".to_owned()]
+                // contain deeply nested string literals whose spans differ from
+                // the top-level argument span.
                 SKIP_SPANS.with(|spans| {
                     let mut spans = spans.borrow_mut();
                     for arg in &method_call.args {
-                        spans.insert(arg.span);
+                        collect_nested_spans(arg, &mut spans);
                     }
                 });
             }
         }
 
-        // Check if this expression should be skipped (it's inside a starts_with call)
+        // Detect free-function calls: `GtsWildcard::new("...")` or `SomeType::new(...)` where
+        // the path contains "GtsWildcard".  Arguments are allowed to contain wildcards.
+        if let ExprKind::Call(func, args) = &expr.kind {
+            if is_gts_wildcard_new_call(func) {
+                SKIP_SPANS.with(|spans| {
+                    let mut spans = spans.borrow_mut();
+                    for arg in args {
+                        collect_nested_spans(arg, &mut spans);
+                    }
+                });
+                // Validate args as wildcard-allowed patterns and return early.
+                for arg in args {
+                    self.check_gts_string_literal_with_wildcards(cx, arg);
+                }
+                return;
+            }
+        }
+
+        // ── Phase 2: skip if this expression was marked ────────────────────────
         let should_skip = SKIP_SPANS.with(|spans| spans.borrow().contains(&expr.span));
         if should_skip {
             return;
@@ -77,8 +156,11 @@ impl EarlyLintPass for De0901GtsStringPattern {
         // Check if this is a method call - handle resource_pattern and with_pattern specially
         if let ExprKind::MethodCall(method_call) = &expr.kind {
             let method_name = method_call.seg.ident.name.as_str();
-            // Check if this is a method call to resource_pattern or with_pattern - allow wildcards in its arguments
-            if method_name == "resource_pattern" || method_name == "with_pattern" {
+            // Check if this is a method call that allows wildcards in its arguments
+            if method_name == "resource_pattern"
+                || method_name == "with_pattern"
+                || method_name == "resolve_to_uuids"
+            {
                 // Check string literals in these calls with wildcards allowed
                 for arg in &method_call.args {
                     self.check_gts_string_literal_with_wildcards(cx, arg);
@@ -96,6 +178,68 @@ impl EarlyLintPass for De0901GtsStringPattern {
         // For non-method-call expressions, check normally
         self.check_gts_string_literal(cx, expr);
     }
+}
+
+/// Recursively collect spans from all sub-expressions so that deeply nested
+/// string literals (e.g. inside `&["gts...".to_owned()]`) are included in the
+/// skip set.
+fn collect_nested_spans(expr: &Expr, spans: &mut HashSet<Span>) {
+    spans.insert(expr.span);
+    match &expr.kind {
+        ExprKind::MethodCall(mc) => {
+            collect_nested_spans(&mc.receiver, spans);
+            for arg in &mc.args {
+                collect_nested_spans(arg, spans);
+            }
+        }
+        ExprKind::AddrOf(_, _, inner) => {
+            collect_nested_spans(inner, spans);
+        }
+        ExprKind::Array(elements) => {
+            for elem in elements {
+                collect_nested_spans(elem, spans);
+            }
+        }
+        ExprKind::Call(func, args) => {
+            collect_nested_spans(func, spans);
+            for arg in args {
+                collect_nested_spans(arg, spans);
+            }
+        }
+        ExprKind::Tup(elements) => {
+            for elem in elements {
+                collect_nested_spans(elem, spans);
+            }
+        }
+        ExprKind::Paren(inner) => {
+            collect_nested_spans(inner, spans);
+        }
+        _ => {}
+    }
+}
+
+/// Returns `true` if `func_expr` is a path call of the form `GtsWildcard::new`
+/// (or `gts::GtsWildcard::new`, `<anything>::GtsWildcard::new`, etc.).
+///
+/// We check that:
+/// 1. The expression is a `Path` with at least two segments.
+/// 2. The last segment is named `new`.
+/// 3. At least one other segment is named `GtsWildcard`.
+fn is_gts_wildcard_new_call(func_expr: &Expr) -> bool {
+    let ExprKind::Path(_, path) = &func_expr.kind else {
+        return false;
+    };
+    let segments = &path.segments;
+    if segments.len() < 2 {
+        return false;
+    }
+    let last = segments.last().unwrap();
+    if last.ident.name.as_str() != "new" {
+        return false;
+    }
+    segments
+        .iter()
+        .any(|seg| seg.ident.name.as_str() == "GtsWildcard")
 }
 
 impl De0901GtsStringPattern {

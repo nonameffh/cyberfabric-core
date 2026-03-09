@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use authz_resolver_sdk::PolicyEnforcer;
+use authz_resolver_sdk::{EnforcerError, PolicyEnforcer};
 use modkit_macros::domain_model;
 use modkit_security::{AccessScope, SecurityContext};
 use tracing::info;
@@ -24,7 +24,7 @@ use super::{DbProvider, actions, resources};
 pub enum MutationError {
     ChatNotFound { chat_id: Uuid },
     TurnNotFound { chat_id: Uuid, request_id: Uuid },
-    InsufficientPermissions,
+    Forbidden,
     InvalidTurnState { state: TurnState },
     NotLatestTurn,
     GenerationInProgress,
@@ -41,7 +41,7 @@ impl std::fmt::Display for MutationError {
             } => {
                 write!(f, "Turn {request_id} not found in chat {chat_id}")
             }
-            Self::InsufficientPermissions => write!(f, "Insufficient permissions"),
+            Self::Forbidden => write!(f, "Access denied"),
             Self::InvalidTurnState { state } => {
                 let label = match state {
                     TurnState::Running => "running",
@@ -61,6 +61,28 @@ impl std::fmt::Display for MutationError {
 }
 
 impl std::error::Error for MutationError {}
+
+impl From<EnforcerError> for MutationError {
+    #[allow(clippy::cognitive_complexity)]
+    fn from(e: EnforcerError) -> Self {
+        match e {
+            EnforcerError::Denied { ref deny_reason } => {
+                tracing::warn!(deny_reason = ?deny_reason, "AuthZ denied access");
+                Self::Forbidden
+            }
+            EnforcerError::CompileFailed(ref err) => {
+                tracing::warn!(error = %err, "AuthZ constraint compile failed - access denied");
+                Self::Forbidden
+            }
+            EnforcerError::EvaluationFailed(ref err) => {
+                tracing::error!(error = %err, "AuthZ evaluation failed (internal error)");
+                Self::Internal {
+                    message: err.to_string(),
+                }
+            }
+        }
+    }
+}
 
 // ════════════════════════════════════════════════════════════════════════════
 // Results
@@ -119,6 +141,46 @@ impl<TR: TurnRepository + 'static, MR: MessageRepository + 'static, CR: ChatRepo
         }
     }
 
+    // ── Get ─────────────────────────────────────────────────────────────
+
+    pub async fn get(
+        &self,
+        ctx: &SecurityContext,
+        chat_id: Uuid,
+        request_id: Uuid,
+    ) -> Result<TurnModel, MutationError> {
+        let scope = self
+            .enforcer
+            .access_scope(ctx, &resources::CHAT, actions::READ_TURN, Some(chat_id))
+            .await?;
+
+        let conn = self.db.conn().map_err(|e| MutationError::Internal {
+            message: e.to_string(),
+        })?;
+
+        // Verify chat exists (scoped by authz)
+        self.chat_repo
+            .get(&conn, &scope, chat_id)
+            .await
+            .map_err(|e| MutationError::Internal {
+                message: e.to_string(),
+            })?
+            .ok_or(MutationError::ChatNotFound { chat_id })?;
+
+        let scope = scope.tenant_only();
+
+        self.turn_repo
+            .find_by_chat_and_request_id(&conn, &scope, chat_id, request_id)
+            .await
+            .map_err(|e| MutationError::Internal {
+                message: e.to_string(),
+            })?
+            .ok_or(MutationError::TurnNotFound {
+                chat_id,
+                request_id,
+            })
+    }
+
     // ── Delete ──────────────────────────────────────────────────────────
 
     pub async fn delete(
@@ -129,18 +191,23 @@ impl<TR: TurnRepository + 'static, MR: MessageRepository + 'static, CR: ChatRepo
     ) -> Result<DeleteResult, MutationError> {
         info!(%chat_id, %request_id, "turn delete");
 
+        let scope = self
+            .enforcer
+            .access_scope(ctx, &resources::CHAT, actions::DELETE_TURN, Some(chat_id))
+            .await?;
+
         let turn_repo = Arc::clone(&self.turn_repo);
         let chat_repo = Arc::clone(&self.chat_repo);
-        let enforcer = self.enforcer.clone();
+        let scope_tx = scope.clone();
         let ctx_clone = ctx.clone();
 
         self.db
             .transaction(|tx| {
                 Box::pin(async move {
                     let (scope, target) = validate_mutation(
-                        &enforcer,
                         &*chat_repo,
                         &*turn_repo,
+                        &scope_tx,
                         &ctx_clone,
                         tx,
                         chat_id,
@@ -173,7 +240,12 @@ impl<TR: TurnRepository + 'static, MR: MessageRepository + 'static, CR: ChatRepo
         request_id: Uuid,
     ) -> Result<MutationResult, MutationError> {
         info!(%chat_id, %request_id, "turn retry");
-        self.mutate_for_stream(ctx, chat_id, request_id, None).await
+        let scope = self
+            .enforcer
+            .access_scope(ctx, &resources::CHAT, actions::RETRY_TURN, Some(chat_id))
+            .await?;
+        self.mutate_for_stream(ctx, scope, chat_id, request_id, None)
+            .await
     }
 
     // ── Edit ────────────────────────────────────────────────────────────
@@ -186,7 +258,11 @@ impl<TR: TurnRepository + 'static, MR: MessageRepository + 'static, CR: ChatRepo
         new_content: String,
     ) -> Result<MutationResult, MutationError> {
         info!(%chat_id, %request_id, "turn edit");
-        self.mutate_for_stream(ctx, chat_id, request_id, Some(new_content))
+        let scope = self
+            .enforcer
+            .access_scope(ctx, &resources::CHAT, actions::EDIT_TURN, Some(chat_id))
+            .await?;
+        self.mutate_for_stream(ctx, scope, chat_id, request_id, Some(new_content))
             .await
     }
 
@@ -195,6 +271,7 @@ impl<TR: TurnRepository + 'static, MR: MessageRepository + 'static, CR: ChatRepo
     async fn mutate_for_stream(
         &self,
         ctx: &SecurityContext,
+        chat_scope: AccessScope,
         chat_id: Uuid,
         request_id: Uuid,
         override_content: Option<String>,
@@ -205,7 +282,7 @@ impl<TR: TurnRepository + 'static, MR: MessageRepository + 'static, CR: ChatRepo
         let turn_repo = Arc::clone(&self.turn_repo);
         let message_repo = Arc::clone(&self.message_repo);
         let chat_repo = Arc::clone(&self.chat_repo);
-        let enforcer = self.enforcer.clone();
+        let scope_tx = chat_scope.clone();
         let ctx_clone = ctx.clone();
 
         let user_content = self
@@ -213,9 +290,9 @@ impl<TR: TurnRepository + 'static, MR: MessageRepository + 'static, CR: ChatRepo
             .transaction(|tx| {
                 Box::pin(async move {
                     let (scope, target) = validate_mutation(
-                        &enforcer,
                         &*chat_repo,
                         &*turn_repo,
+                        &scope_tx,
                         &ctx_clone,
                         tx,
                         chat_id,
@@ -310,29 +387,24 @@ impl<TR: TurnRepository + 'static, MR: MessageRepository + 'static, CR: ChatRepo
 // ════════════════════════════════════════════════════════════════════════════
 
 async fn validate_mutation<CR: ChatRepository, TR: TurnRepository>(
-    enforcer: &PolicyEnforcer,
     chat_repo: &CR,
     turn_repo: &TR,
+    chat_scope: &AccessScope,
     ctx: &SecurityContext,
     tx: &impl modkit_db::secure::DBRunner,
     chat_id: Uuid,
     request_id: Uuid,
 ) -> Result<(AccessScope, TurnModel), MutationError> {
-    // 1. Load chat with authorization
-    let scope = enforcer
-        .access_scope(ctx, &resources::CHAT, actions::DELETE_TURN, Some(chat_id))
-        .await
-        .map_err(|_| MutationError::ChatNotFound { chat_id })?;
-
+    // 1. Verify chat exists with pre-computed authorization scope
     chat_repo
-        .get(tx, &scope, chat_id)
+        .get(tx, chat_scope, chat_id)
         .await
         .map_err(|e| MutationError::Internal {
             message: e.to_string(),
         })?
         .ok_or(MutationError::ChatNotFound { chat_id })?;
 
-    let scope = scope.tenant_only();
+    let scope = chat_scope.tenant_only();
 
     // 2. Acquire target turn by request_id
     let target = turn_repo
@@ -348,7 +420,7 @@ async fn validate_mutation<CR: ChatRepository, TR: TurnRepository>(
 
     // 3. Verify ownership
     if target.requester_user_id != Some(ctx.subject_id()) {
-        return Err(MutationError::InsufficientPermissions);
+        return Err(MutationError::Forbidden);
     }
 
     // 4. Verify terminal state

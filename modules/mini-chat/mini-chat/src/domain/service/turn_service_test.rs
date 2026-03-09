@@ -171,6 +171,90 @@ async fn create_completed_turn(
 }
 
 // ════════════════════════════════════════════════════════════════════════════
+// TurnService::get
+// ════════════════════════════════════════════════════════════════════════════
+
+#[tokio::test]
+async fn get_returns_completed_turn() {
+    let (svc, ctx, chat_id, tenant_id) = setup().await;
+
+    let request_id = create_completed_turn(
+        &svc.db,
+        &*svc.turn_repo,
+        &*svc.message_repo,
+        tenant_id,
+        chat_id,
+        ctx.subject_id(),
+    )
+    .await;
+
+    let turn = svc.get(&ctx, chat_id, request_id).await.unwrap();
+    assert_eq!(turn.request_id, request_id);
+    assert_eq!(turn.chat_id, chat_id);
+    assert_eq!(turn.state, TurnState::Completed);
+    assert!(turn.assistant_message_id.is_some());
+}
+
+#[tokio::test]
+async fn get_returns_running_turn() {
+    let (svc, ctx, chat_id, tenant_id) = setup().await;
+
+    let request_id = Uuid::new_v4();
+    let scope = AccessScope::for_tenant(tenant_id);
+    let conn = svc.db.conn().unwrap();
+    svc.turn_repo
+        .create_turn(
+            &conn,
+            &scope,
+            crate::domain::repos::CreateTurnParams {
+                id: Uuid::new_v4(),
+                tenant_id,
+                chat_id,
+                request_id,
+                requester_type: "user".to_owned(),
+                requester_user_id: Some(ctx.subject_id()),
+                reserve_tokens: None,
+                max_output_tokens_applied: None,
+                reserved_credits_micro: None,
+                policy_version_applied: None,
+                effective_model: None,
+                minimal_generation_floor_applied: None,
+            },
+        )
+        .await
+        .unwrap();
+
+    let turn = svc.get(&ctx, chat_id, request_id).await.unwrap();
+    assert_eq!(turn.request_id, request_id);
+    assert_eq!(turn.state, TurnState::Running);
+}
+
+#[tokio::test]
+async fn get_nonexistent_turn_returns_not_found() {
+    let (svc, ctx, chat_id, _) = setup().await;
+
+    let err = svc.get(&ctx, chat_id, Uuid::new_v4()).await.unwrap_err();
+    assert!(
+        matches!(err, MutationError::TurnNotFound { .. }),
+        "expected TurnNotFound, got: {err:?}"
+    );
+}
+
+#[tokio::test]
+async fn get_nonexistent_chat_returns_chat_not_found() {
+    let (svc, ctx, _, _) = setup().await;
+
+    let err = svc
+        .get(&ctx, Uuid::new_v4(), Uuid::new_v4())
+        .await
+        .unwrap_err();
+    assert!(
+        matches!(err, MutationError::ChatNotFound { .. }),
+        "expected ChatNotFound, got: {err:?}"
+    );
+}
+
+// ════════════════════════════════════════════════════════════════════════════
 // 7.4: validate_mutation — 5 checks in order
 // ════════════════════════════════════════════════════════════════════════════
 
@@ -200,7 +284,7 @@ async fn delete_nonexistent_chat_returns_chat_not_found() {
 }
 
 #[tokio::test]
-async fn delete_wrong_owner_returns_insufficient_permissions() {
+async fn delete_wrong_owner_returns_forbidden() {
     let (svc, ctx, chat_id, tenant_id) = setup().await;
 
     // Create a turn with a DIFFERENT requester_user_id than ctx.subject_id()
@@ -218,8 +302,8 @@ async fn delete_wrong_owner_returns_insufficient_permissions() {
     // ctx.subject_id() != other_user_id → ownership check fails
     let err = svc.delete(&ctx, chat_id, request_id).await.unwrap_err();
     assert!(
-        matches!(err, MutationError::InsufficientPermissions),
-        "expected InsufficientPermissions, got: {err:?}"
+        matches!(err, MutationError::Forbidden),
+        "expected Forbidden, got: {err:?}"
     );
 }
 

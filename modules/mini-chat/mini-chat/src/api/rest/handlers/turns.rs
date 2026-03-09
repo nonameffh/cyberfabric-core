@@ -14,7 +14,6 @@ use tracing::{Instrument, info, warn};
 use utoipa::ToSchema;
 
 use super::messages::SseRelay;
-use crate::domain::repos::TurnRepository;
 use crate::domain::service::{MutationError, StreamError};
 use crate::domain::stream_events::StreamEvent;
 use crate::infra::db::entity::chat_turn::TurnState;
@@ -52,41 +51,11 @@ pub(crate) async fn get_turn(
     Extension(svc): Extension<Arc<AppServices>>,
     Path((chat_id, request_id)): Path<(uuid::Uuid, uuid::Uuid)>,
 ) -> ApiResult<Json<TurnStatusResponse>> {
-    // Authorization: read_turn scoped to chat
-    let scope = svc
-        .enforcer
-        .access_scope(
-            &ctx,
-            &crate::domain::service::resources::CHAT,
-            crate::domain::service::actions::READ_TURN,
-            Some(chat_id),
-        )
-        .await
-        .map_err(|_| Problem::new(StatusCode::NOT_FOUND, "turn_not_found", "Turn not found"))?;
-    let scope = scope.tenant_only();
-
-    let conn = svc.db.conn().map_err(|e| {
-        tracing::error!(error = %e, "failed to acquire DB connection for get_turn");
-        Problem::new(
-            StatusCode::INTERNAL_SERVER_ERROR,
-            "Internal Error",
-            "An internal error occurred",
-        )
-    })?;
-
     let turn = svc
-        .turn_repo
-        .find_by_chat_and_request_id(&conn, &scope, chat_id, request_id)
+        .turns
+        .get(&ctx, chat_id, request_id)
         .await
-        .map_err(|e| {
-            tracing::error!(error = %e, "failed to fetch turn from DB");
-            Problem::new(
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "Internal Error",
-                "An internal error occurred",
-            )
-        })?
-        .ok_or_else(|| Problem::new(StatusCode::NOT_FOUND, "turn_not_found", "Turn not found"))?;
+        .map_err(|e| mutation_error_to_problem(&e))?;
 
     Ok(Json(TurnStatusResponse {
         request_id: turn.request_id,
@@ -271,13 +240,9 @@ fn mutation_error_to_problem(err: &MutationError) -> Problem {
         MutationError::TurnNotFound { .. } => {
             Problem::new(StatusCode::NOT_FOUND, "turn_not_found", "Turn not found")
         }
-        MutationError::InsufficientPermissions => {
-            warn!("insufficient permissions for turn mutation");
-            Problem::new(
-                StatusCode::FORBIDDEN,
-                "insufficient_permissions",
-                "You do not have permission to modify this turn",
-            )
+        MutationError::Forbidden => {
+            warn!("access denied for turn mutation");
+            Problem::new(StatusCode::FORBIDDEN, "forbidden", "Access denied")
         }
         MutationError::InvalidTurnState { state } => Problem::new(
             StatusCode::BAD_REQUEST,

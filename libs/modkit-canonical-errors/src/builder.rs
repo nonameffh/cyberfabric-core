@@ -10,31 +10,47 @@ use crate::error::CanonicalError;
 // Resource markers
 // ---------------------------------------------------------------------------
 
+#[doc(hidden)]
 pub struct ResourceAbsent;
+#[doc(hidden)]
 pub struct ResourceOptional;
+#[doc(hidden)]
 pub struct ResourceMissing;
+#[doc(hidden)]
 pub struct ResourceSet(String);
 
 // ---------------------------------------------------------------------------
 // Context markers
 // ---------------------------------------------------------------------------
 
+#[doc(hidden)]
 pub struct NoContext;
+#[doc(hidden)]
 pub struct NeedsFieldViolation;
+#[doc(hidden)]
 pub struct HasFieldViolations(Vec<FieldViolation>);
+#[doc(hidden)]
 pub struct NeedsPreconditionViolation;
+#[doc(hidden)]
 pub struct HasPreconditionViolations(Vec<PreconditionViolation>);
+#[doc(hidden)]
 pub struct NeedsQuotaViolation;
+#[doc(hidden)]
 pub struct HasQuotaViolations(Vec<QuotaViolation>);
+#[doc(hidden)]
 pub struct HasFormatMessage(String);
+#[doc(hidden)]
 pub struct HasConstraintMessage(String);
+#[doc(hidden)]
 pub struct NeedsReason;
-pub struct HasReason;
+#[doc(hidden)]
+pub struct HasReason(String);
 
 // ---------------------------------------------------------------------------
 // Traits gating build()
 // ---------------------------------------------------------------------------
 
+#[doc(hidden)]
 pub trait ResourceResolved {
     fn resolve(self) -> Option<String>;
 }
@@ -57,14 +73,17 @@ impl ResourceResolved for ResourceSet {
     }
 }
 
+#[doc(hidden)]
 pub struct ContextData {
     pub field_violations: Vec<FieldViolation>,
     pub precondition_violations: Vec<PreconditionViolation>,
     pub quota_violations: Vec<QuotaViolation>,
     pub format_message: Option<String>,
     pub constraint_message: Option<String>,
+    pub reason: String,
 }
 
+#[doc(hidden)]
 pub trait ContextResolved {
     fn into_context_data(self) -> ContextData;
 }
@@ -77,6 +96,7 @@ impl ContextResolved for NoContext {
             quota_violations: Vec::new(),
             format_message: None,
             constraint_message: None,
+            reason: String::new(),
         }
     }
 }
@@ -89,6 +109,7 @@ impl ContextResolved for HasFieldViolations {
             quota_violations: Vec::new(),
             format_message: None,
             constraint_message: None,
+            reason: String::new(),
         }
     }
 }
@@ -101,6 +122,7 @@ impl ContextResolved for HasFormatMessage {
             quota_violations: Vec::new(),
             format_message: Some(self.0),
             constraint_message: None,
+            reason: String::new(),
         }
     }
 }
@@ -113,6 +135,7 @@ impl ContextResolved for HasConstraintMessage {
             quota_violations: Vec::new(),
             format_message: None,
             constraint_message: Some(self.0),
+            reason: String::new(),
         }
     }
 }
@@ -125,6 +148,7 @@ impl ContextResolved for HasPreconditionViolations {
             quota_violations: Vec::new(),
             format_message: None,
             constraint_message: None,
+            reason: String::new(),
         }
     }
 }
@@ -137,6 +161,7 @@ impl ContextResolved for HasQuotaViolations {
             quota_violations: self.0,
             format_message: None,
             constraint_message: None,
+            reason: String::new(),
         }
     }
 }
@@ -149,6 +174,7 @@ impl ContextResolved for HasReason {
             quota_violations: Vec::new(),
             format_message: None,
             constraint_message: None,
+            reason: self.0,
         }
     }
 }
@@ -187,7 +213,6 @@ pub struct ResourceErrorBuilder<Resource, Context> {
     variant: ErrorVariant,
     resource: Resource,
     context: Context,
-    reason: Option<String>,
 }
 
 // ---------------------------------------------------------------------------
@@ -203,7 +228,6 @@ impl ResourceErrorBuilder<ResourceMissing, NoContext> {
             variant: ErrorVariant::NotFound,
             resource: ResourceMissing,
             context: NoContext,
-            reason: None,
         }
     }
 
@@ -215,7 +239,6 @@ impl ResourceErrorBuilder<ResourceMissing, NoContext> {
             variant: ErrorVariant::AlreadyExists,
             resource: ResourceMissing,
             context: NoContext,
-            reason: None,
         }
     }
 
@@ -227,7 +250,6 @@ impl ResourceErrorBuilder<ResourceMissing, NoContext> {
             variant: ErrorVariant::DataLoss,
             resource: ResourceMissing,
             context: NoContext,
-            reason: None,
         }
     }
 }
@@ -241,7 +263,6 @@ impl ResourceErrorBuilder<ResourceOptional, NeedsReason> {
             variant: ErrorVariant::Aborted,
             resource: ResourceOptional,
             context: NeedsReason,
-            reason: None,
         }
     }
 }
@@ -255,7 +276,6 @@ impl ResourceErrorBuilder<ResourceOptional, NoContext> {
             variant: ErrorVariant::Unknown,
             resource: ResourceOptional,
             context: NoContext,
-            reason: None,
         }
     }
 
@@ -267,7 +287,6 @@ impl ResourceErrorBuilder<ResourceOptional, NoContext> {
             variant: ErrorVariant::DeadlineExceeded,
             resource: ResourceOptional,
             context: NoContext,
-            reason: None,
         }
     }
 
@@ -279,7 +298,6 @@ impl ResourceErrorBuilder<ResourceOptional, NoContext> {
             variant: ErrorVariant::Unimplemented,
             resource: ResourceOptional,
             context: NoContext,
-            reason: None,
         }
     }
 }
@@ -293,7 +311,6 @@ impl ResourceErrorBuilder<ResourceAbsent, NeedsReason> {
             variant: ErrorVariant::PermissionDenied,
             resource: ResourceAbsent,
             context: NeedsReason,
-            reason: None,
         }
     }
 }
@@ -307,7 +324,6 @@ impl ResourceErrorBuilder<ResourceAbsent, NoContext> {
             variant: ErrorVariant::Cancelled,
             resource: ResourceAbsent,
             context: NoContext,
-            reason: None,
         }
     }
 }
@@ -321,7 +337,6 @@ impl ResourceErrorBuilder<ResourceOptional, NeedsFieldViolation> {
             variant: ErrorVariant::InvalidArgument,
             resource: ResourceOptional,
             context: NeedsFieldViolation,
-            reason: None,
         }
     }
 
@@ -333,7 +348,6 @@ impl ResourceErrorBuilder<ResourceOptional, NeedsFieldViolation> {
             variant: ErrorVariant::OutOfRange,
             resource: ResourceOptional,
             context: NeedsFieldViolation,
-            reason: None,
         }
     }
 }
@@ -347,7 +361,6 @@ impl ResourceErrorBuilder<ResourceOptional, NeedsQuotaViolation> {
             variant: ErrorVariant::ResourceExhausted,
             resource: ResourceOptional,
             context: NeedsQuotaViolation,
-            reason: None,
         }
     }
 }
@@ -361,7 +374,6 @@ impl ResourceErrorBuilder<ResourceOptional, NeedsPreconditionViolation> {
             variant: ErrorVariant::FailedPrecondition,
             resource: ResourceOptional,
             context: NeedsPreconditionViolation,
-            reason: None,
         }
     }
 }
@@ -382,7 +394,6 @@ impl<Context> ResourceErrorBuilder<ResourceMissing, Context> {
             variant: self.variant,
             resource: ResourceSet(resource.into()),
             context: self.context,
-            reason: self.reason,
         }
     }
 }
@@ -399,7 +410,6 @@ impl<Context> ResourceErrorBuilder<ResourceOptional, Context> {
             variant: self.variant,
             resource: ResourceSet(resource.into()),
             context: self.context,
-            reason: self.reason,
         }
     }
 }
@@ -422,7 +432,6 @@ impl<Resource> ResourceErrorBuilder<Resource, NeedsFieldViolation> {
             variant: self.variant,
             resource: self.resource,
             context: HasFieldViolations(vec![FieldViolation::new(field, description, reason)]),
-            reason: self.reason,
         }
     }
 
@@ -438,7 +447,6 @@ impl<Resource> ResourceErrorBuilder<Resource, NeedsFieldViolation> {
             variant: self.variant,
             resource: self.resource,
             context: HasFormatMessage(msg),
-            reason: self.reason,
         }
     }
 
@@ -454,7 +462,6 @@ impl<Resource> ResourceErrorBuilder<Resource, NeedsFieldViolation> {
             variant: self.variant,
             resource: self.resource,
             context: HasConstraintMessage(msg),
-            reason: self.reason,
         }
     }
 }
@@ -496,7 +503,6 @@ impl<Resource> ResourceErrorBuilder<Resource, NeedsPreconditionViolation> {
                 subject,
                 description,
             )]),
-            reason: self.reason,
         }
     }
 }
@@ -533,7 +539,6 @@ impl<Resource> ResourceErrorBuilder<Resource, NeedsQuotaViolation> {
             variant: self.variant,
             resource: self.resource,
             context: HasQuotaViolations(vec![QuotaViolation::new(subject, description)]),
-            reason: self.reason,
         }
     }
 }
@@ -567,8 +572,7 @@ impl<Resource> ResourceErrorBuilder<Resource, NeedsReason> {
             detail: self.detail,
             variant: self.variant,
             resource: self.resource,
-            context: HasReason,
-            reason: Some(reason.into()),
+            context: HasReason(reason.into()),
         }
     }
 }
@@ -586,7 +590,6 @@ impl CanonicalError {
             variant: ErrorVariant::Internal,
             resource: ResourceAbsent,
             context: NoContext,
-            reason: None,
         }
     }
 
@@ -605,7 +608,6 @@ impl CanonicalError {
             variant: ErrorVariant::Unauthenticated,
             resource: ResourceAbsent,
             context: NeedsReason,
-            reason: None,
         }
     }
 }
@@ -623,27 +625,18 @@ where
     pub fn create(self) -> CanonicalError {
         let resource_name = self.resource.resolve();
         let ctx_data = self.context.into_context_data();
-        let rt = self.resource_type.unwrap_or("");
 
         let err = match self.variant {
-            ErrorVariant::NotFound => {
-                let rn = resource_name.as_deref().unwrap_or("");
-                CanonicalError::__not_found(NotFound::new(rt, rn))
-            }
-            ErrorVariant::AlreadyExists => {
-                let rn = resource_name.as_deref().unwrap_or("");
-                CanonicalError::__already_exists(AlreadyExists::new(rt, rn))
-            }
-            ErrorVariant::Aborted => {
-                CanonicalError::__aborted(Aborted::new(self.reason.as_deref().unwrap_or("")))
-            }
+            ErrorVariant::NotFound => CanonicalError::__not_found(NotFound::new()),
+            ErrorVariant::AlreadyExists => CanonicalError::__already_exists(AlreadyExists::new()),
+            ErrorVariant::Aborted => CanonicalError::__aborted(Aborted::new(&ctx_data.reason)),
             ErrorVariant::Unknown => CanonicalError::__unknown(Unknown::new(&self.detail)),
             ErrorVariant::DeadlineExceeded => {
                 CanonicalError::__deadline_exceeded(DeadlineExceeded::new())
             }
-            ErrorVariant::PermissionDenied => CanonicalError::__permission_denied(
-                PermissionDenied::new(self.reason.as_deref().unwrap_or("")),
-            ),
+            ErrorVariant::PermissionDenied => {
+                CanonicalError::__permission_denied(PermissionDenied::new(&ctx_data.reason))
+            }
             ErrorVariant::InvalidArgument => {
                 let ctx = if let Some(fmt) = ctx_data.format_message {
                     InvalidArgument::format(fmt)
@@ -666,14 +659,11 @@ where
             ErrorVariant::Cancelled => CanonicalError::__cancelled(Cancelled::new()),
             ErrorVariant::Unimplemented => CanonicalError::__unimplemented(Unimplemented::new()),
             ErrorVariant::Internal => CanonicalError::__internal(Internal::new(&self.detail)),
-            ErrorVariant::DataLoss => {
-                let rn = resource_name.as_deref().unwrap_or("");
-                CanonicalError::__data_loss(DataLoss::new(rt, rn))
-            }
+            ErrorVariant::DataLoss => CanonicalError::__data_loss(DataLoss::new()),
             ErrorVariant::Unauthenticated => {
                 let mut ctx = Unauthenticated::new();
-                if let Some(reason) = self.reason {
-                    ctx = ctx.with_reason(reason);
+                if !ctx_data.reason.is_empty() {
+                    ctx = ctx.with_reason(ctx_data.reason);
                 }
                 CanonicalError::__unauthenticated(ctx)
             }
@@ -717,9 +707,7 @@ impl ServiceUnavailableBuilder {
 
     #[must_use]
     pub fn create(self) -> CanonicalError {
-        CanonicalError::__service_unavailable(ServiceUnavailable::new(
-            self.retry_after_seconds.unwrap_or(0),
-        ))
-        .with_detail("Service temporarily unavailable")
+        CanonicalError::__service_unavailable(ServiceUnavailable::new(self.retry_after_seconds))
+            .with_detail("Service temporarily unavailable")
     }
 }

@@ -584,8 +584,7 @@ impl From<std::io::Error> for CanonicalError {
 
 impl From<serde_json::Error> for CanonicalError {
     fn from(err: serde_json::Error) -> Self {
-        Self::__invalid_argument(InvalidArgument::format(err.to_string()))
-            .with_detail(err.to_string())
+        Self::__internal(Internal::new(err.to_string())).with_detail("Malformed JSON request body")
     }
 }
 

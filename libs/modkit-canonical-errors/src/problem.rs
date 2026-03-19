@@ -22,14 +22,20 @@ pub struct Problem {
 
 impl Problem {
     /// Convert a `CanonicalError` to a `Problem`.
-    #[must_use]
-    pub fn from_error(err: &CanonicalError) -> Self {
+    ///
+    /// # Errors
+    ///
+    /// Returns `serde_json::Error` if the error-category context type
+    /// fails to serialize.  Built-in context types are plain structs and
+    /// should never fail, but this keeps the failure visible rather than
+    /// silently producing an empty `"context": {}`.
+    pub fn from_error(err: &CanonicalError) -> Result<Self, serde_json::Error> {
         let problem_type = format!("gts://{}", err.gts_type());
         let title = err.title().to_owned();
         let status = err.status_code();
         let detail = err.detail().to_owned();
 
-        let mut context = serialize_context(err);
+        let mut context = serialize_context(err)?;
 
         if let Some(rt) = err.resource_type() {
             context["resource_type"] = serde_json::Value::String(rt.to_owned());
@@ -39,7 +45,7 @@ impl Problem {
             context["resource_name"] = serde_json::Value::String(rn.to_owned());
         }
 
-        Problem {
+        Ok(Problem {
             problem_type,
             title,
             status,
@@ -47,7 +53,7 @@ impl Problem {
             instance: None,
             trace_id: None,
             context,
-        }
+        })
     }
 
     /// Convert a `CanonicalError` to a `Problem`, including the internal
@@ -60,15 +66,18 @@ impl Problem {
     ///
     /// In production, use [`from_error`](Self::from_error) instead — it
     /// never leaks the diagnostic string.
-    #[must_use]
-    pub fn from_error_debug(err: &CanonicalError) -> Self {
-        let mut problem = Self::from_error(err);
+    ///
+    /// # Errors
+    ///
+    /// Returns `serde_json::Error` if the context fails to serialize.
+    pub fn from_error_debug(err: &CanonicalError) -> Result<Self, serde_json::Error> {
+        let mut problem = Self::from_error(err)?;
 
         if let Some(diag) = err.diagnostic() {
             problem.context["description"] = serde_json::Value::String(diag.to_owned());
         }
 
-        problem
+        Ok(problem)
     }
 
     /// Set the `trace_id` field, returning `self` for chaining.
@@ -86,7 +95,7 @@ impl Problem {
     }
 }
 
-fn serialize_context(err: &CanonicalError) -> serde_json::Value {
+fn serialize_context(err: &CanonicalError) -> Result<serde_json::Value, serde_json::Error> {
     match err {
         CanonicalError::Cancelled { ctx, .. } => serde_json::to_value(ctx),
         CanonicalError::Unknown { ctx, .. } => serde_json::to_value(ctx),
@@ -105,11 +114,21 @@ fn serialize_context(err: &CanonicalError) -> serde_json::Value {
         CanonicalError::DataLoss { ctx, .. } => serde_json::to_value(ctx),
         CanonicalError::Unauthenticated { ctx, .. } => serde_json::to_value(ctx),
     }
-    .unwrap_or_default()
 }
 
 impl From<CanonicalError> for Problem {
     fn from(err: CanonicalError) -> Self {
-        Problem::from_error(&err)
+        match Problem::from_error(&err) {
+            Ok(p) => p,
+            Err(ser_err) => Problem {
+                problem_type: format!("gts://{}", err.gts_type()),
+                title: err.title().to_owned(),
+                status: err.status_code(),
+                detail: err.detail().to_owned(),
+                instance: None,
+                trace_id: None,
+                context: serde_json::Value::String(ser_err.to_string()),
+            },
+        }
     }
 }

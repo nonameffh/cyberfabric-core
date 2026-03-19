@@ -1,10 +1,10 @@
-extern crate cf_modkit_errors;
+extern crate modkit_canonical_errors;
 
-use cf_modkit_errors::{CanonicalError, Problem};
+use modkit_canonical_errors::{CanonicalError, Problem};
 
 #[test]
 fn problem_from_not_found_has_correct_fields() {
-    cf_modkit_errors::resource_error!(R, "gts.cf.core.users.user.v1~");
+    modkit_canonical_errors::resource_error!(R, "gts.cf.core.users.user.v1~");
     let err = R::not_found("Resource not found")
         .with_resource("user-123")
         .create();
@@ -62,14 +62,14 @@ fn diagnostic_returns_description_for_internal() {
 
 #[test]
 fn diagnostic_returns_description_for_unknown() {
-    cf_modkit_errors::resource_error!(R, "gts.cf.core.test.resource.v1~");
+    modkit_canonical_errors::resource_error!(R, "gts.cf.core.test.resource.v1~");
     let err = R::unknown("unexpected upstream response").create();
     assert_eq!(err.diagnostic(), Some("unexpected upstream response"));
 }
 
 #[test]
 fn diagnostic_returns_none_for_other_categories() {
-    cf_modkit_errors::resource_error!(R, "gts.cf.core.test.resource.v1~");
+    modkit_canonical_errors::resource_error!(R, "gts.cf.core.test.resource.v1~");
     let err = R::not_found("gone").with_resource("x").create();
     assert_eq!(err.diagnostic(), None);
 }
@@ -81,15 +81,15 @@ fn diagnostic_returns_none_for_other_categories() {
 #[test]
 fn from_error_debug_includes_description_for_internal() {
     let err = CanonicalError::internal("db pool exhausted").create();
-    let problem = Problem::from_error_debug(&err);
+    let problem = Problem::from_error_debug(&err).unwrap();
     assert_eq!(problem.context["description"], "db pool exhausted");
 }
 
 #[test]
 fn from_error_debug_includes_description_for_unknown() {
-    cf_modkit_errors::resource_error!(R, "gts.cf.core.test.resource.v1~");
+    modkit_canonical_errors::resource_error!(R, "gts.cf.core.test.resource.v1~");
     let err = R::unknown("unexpected upstream response").create();
-    let problem = Problem::from_error_debug(&err);
+    let problem = Problem::from_error_debug(&err).unwrap();
     assert_eq!(
         problem.context["description"],
         "unexpected upstream response"
@@ -99,24 +99,24 @@ fn from_error_debug_includes_description_for_unknown() {
 #[test]
 fn from_error_does_not_include_description_for_internal() {
     let err = CanonicalError::internal("db pool exhausted").create();
-    let problem = Problem::from_error(&err);
+    let problem = Problem::from_error(&err).unwrap();
     assert!(problem.context.get("description").is_none());
 }
 
 #[test]
 fn from_error_does_not_include_description_for_unknown() {
-    cf_modkit_errors::resource_error!(R, "gts.cf.core.test.resource.v1~");
+    modkit_canonical_errors::resource_error!(R, "gts.cf.core.test.resource.v1~");
     let err = R::unknown("unexpected upstream response").create();
-    let problem = Problem::from_error(&err);
+    let problem = Problem::from_error(&err).unwrap();
     assert!(problem.context.get("description").is_none());
 }
 
 #[test]
 fn from_error_debug_no_op_for_other_categories() {
-    cf_modkit_errors::resource_error!(R, "gts.cf.core.test.resource.v1~");
+    modkit_canonical_errors::resource_error!(R, "gts.cf.core.test.resource.v1~");
     let err = R::not_found("gone").with_resource("x").create();
-    let normal = Problem::from_error(&err);
-    let debug = Problem::from_error_debug(&err);
+    let normal = Problem::from_error(&err).unwrap();
+    let debug = Problem::from_error_debug(&err).unwrap();
     assert_eq!(
         serde_json::to_value(&normal).unwrap(),
         serde_json::to_value(&debug).unwrap(),

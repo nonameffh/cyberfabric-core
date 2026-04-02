@@ -1323,3 +1323,4 @@ components:
           description: Opaque token for previous page. Omitted on first page.
         limit:
           type: integer
+          format: int64

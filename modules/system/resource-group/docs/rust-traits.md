@@ -142,7 +142,7 @@ pub struct RemoveMembershipRequest {
 pub struct PageInfo {
     pub next_cursor: Option<String>,
     pub prev_cursor: Option<String>,
-    pub limit: i32,
+    pub limit: u64,
 }
 
 /// Generic paginated response. Matches REST `*Page` schemas.

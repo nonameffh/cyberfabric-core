@@ -698,7 +698,7 @@ ci_docs: lychee
 # Run CI pipeline locally, requires docker
 ci: fmt clippy test-no-macros test-macros test-db deny test-users-info-pg lychee dylint dylint-test
 
-# Build the hyperspot-server release binary using the stable toolchain.
+# Build the hyperspot-server release binary using a toolchain from the rust-toolchain.toml
 cargo-build:
 	cargo build --release --bin hyperspot-server $(E2E_ARGS)
 

@@ -309,7 +309,7 @@ dylint-test: install-tools
 dylint:
 	$(call check_tool,cargo-dylint)
 	$(call check_tool,dylint-link)
-	cargo +nightly-2026-01-22 dylint --all --workspace
+	cargo dylint --all --workspace
 
 # Run all code safety checks
 safety: clippy kani lint dylint # geiger
@@ -698,9 +698,9 @@ ci_docs: lychee
 # Run CI pipeline locally, requires docker
 ci: fmt clippy test-no-macros test-macros test-db deny test-users-info-pg lychee dylint dylint-test
 
-# Build the hyperspot-server release binary using the stable toolchain.
+# Build the hyperspot-server release binary using a toolchain from the rust-toolchain.toml
 cargo-build:
-	cargo +stable build --release --bin hyperspot-server $(E2E_ARGS)
+	cargo build --release --bin hyperspot-server $(E2E_ARGS)
 
 # Split debug symbols into separate artifact(s) and strip the binary.
 # Requires platform tools: objcopy (Linux), dsymutil+strip (macOS).

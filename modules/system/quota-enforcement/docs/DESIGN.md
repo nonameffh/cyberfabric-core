@@ -274,8 +274,12 @@ integrity.
 QE does not maintain its own metric catalogue. Metric names, kind classification (counter / gauge), and enforcement-mode
 classification (`QuotaGated` / `Direct`) live in the platform `types-registry`. QE validates `metric_name` references
 against `types-registry` at Quota create/update; metric naming/syntax is governed entirely by the registry. The Subject
-Type Registry is realized through the same canonical mechanism (subject type entries are GTS instances under
-`gts://gts.cf.qe.subject.type.v1~`).
+Type Registry is realized through the same canonical mechanism — subject type entries are GTS instances under
+`gts://gts.cf.qe.subject.type.v1~`; P1 seeds two instances:
+`gts.cf.qe.subject.type.v1~cf.qe.subject.tenant.v1` and `gts.cf.qe.subject.type.v1~cf.qe.subject.user.v1`.
+
+> **Notation.** Throughout this document, the two seeded subject types are referenced by their short instance names
+> (`tenant`, `user`) for readability. API requests, storage rows, and outbox events use the full GTS URI form.
 
 **ADRs**: none.
 
